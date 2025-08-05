@@ -1,0 +1,214 @@
+'''
+# --- INSTRUCTIONS TO RUN THIS SCRIPT ---
+
+This file currently has a ".txt" extension for readability, but it contains Python code.
+
+To use it properly, please follow these steps:
+
+1) Rename or save this file with a ".py" extension:
+   - For example, rename it to "genomic_feature.py" or copy-paste its content into a new file saved as "genomic_feature.py".
+   - You need to run the script with a Python interpreter, so it must be a .py file.
+
+2) Make sure Python (version 3.x) is installed on your system.
+   You can check by running in your terminal or command prompt:
+       python --version
+   or, on some systems:
+       python3 --version
+   If Python is not installed, download it from https://www.python.org/downloads/
+
+3) Run the script from the terminal or command prompt with the required arguments.
+   Example:
+       python genomic_feature.py --fasta input.fasta --gtf annotations.gtf --features gene --output output.fasta
+   (On some systems, use "python3" instead of "python")
+
+4) Note: The output file is appended to if it already exists.
+   To start fresh, delete or rename the output file before running again.
+
+5) For more details on usage, check the comments at the top of the script.
+
+If you have any questions, please contact the author: María José Zaruma Delgado
+'''
+'''
+Author: María José Zaruma Delgado
+
+Title:
+genomic_feature.py - Extract genomic feature sequences from FASTA using GTF annotations
+
+Description:
+This script extracts nucleotide sequences of specified genomic features (gene, exon, mRNA, CDS, or all) 
+from a genomic FASTA file based on coordinates provided in a GTF annotation file. For each feature, 
+it retrieves the DNA sequence fragment, calculates GC content and length, and outputs the results 
+in a multi-FASTA format.
+
+Features:
+- Reads and concatenates genomic sequences from FASTA files, ignoring headers.
+- Parses GTF file to obtain feature start/end coordinates and strand information.
+- Supports reverse complement sequence extraction for features on the negative strand.
+- Outputs sequences formatted with lines of up to 80 nucleotides.
+- Includes metadata in FASTA headers (feature type, gene ID, transcript ID if available, length, GC content).
+
+Usage:
+    python genomic_feature.py --fasta input.fasta --gtf annotations.gtf --features gene --output output.fasta
+
+Arguments:
+    --fasta     Input FASTA file with genomic sequences.
+    --gtf       GTF file with genomic feature annotations.
+    --features  Type of genomic feature to extract: gene, exon, mRNA, CDS, or all.
+    --output    Name of the output multi-FASTA file.
+
+Notes:
+- The output file is appended to if it already exists.
+- Designed for basic bioinformatics sequence extraction from genome annotations.
+
+'''
+
+
+# Define a function that processes a FASTA file and returns the DNA sequence as a single string
+def seqdoc(docfasta):
+    with open (docfasta) as f:
+        seqlist = f.readlines()
+    del(seqlist[0])  # Remove FASTA header (first line)
+    seq = ''
+    for i in seqlist:
+        seq += i.strip('\n')  # Concatenate sequence lines
+    return seq
+
+# Define a function that returns the reverse complement of a DNA sequence (used for negative strand)
+def revcomp(dnaminus): 
+    complementaria = ''
+    for i in dnaminus:
+        if i == 'A':
+            complementaria += 'T'
+        elif i == 'T':
+            complementaria += 'A'
+        elif i == 'C':
+            complementaria += 'G'
+        elif i == 'G':
+            complementaria += 'C'
+    revcomp = complementaria[::-1]  # Reverse the string to obtain reverse complement
+    return revcomp 
+
+# Define a function that extracts a subsequence from the DNA, its GC content, and its length
+def infsec(seq, pos1, pos2):
+    cadena = seq[pos1 - 1:pos2]  # Extract fragment based on start and end positions
+    gc = round((cadena.count('G') + cadena.count('C')) / len(cadena), 2)  # Compute GC content
+    lenght = len(cadena)  # Compute length
+    return cadena, gc, lenght
+
+# Define a function that splits a sequence longer than 80 bp into lines of max. 80 characters
+def cad80(cad):
+    frag = ''
+    for i in range(0, len(cad), 80):
+        frag += (cad[i:i+80]) + '\n'
+    return frag
+
+# User interaction begins here: arguments are defined using argparse
+import argparse  
+multifasta = argparse.ArgumentParser(description='Receives a FASTA file and a GTF file, and returns a MULTI-FASTA file.')
+
+# Define required arguments from the user
+multifasta.add_argument('--fasta', required=True,
+                       help='Input file in FASTA format')
+multifasta.add_argument('--gtf', required=True,
+                       help='Input file in GTF format')
+multifasta.add_argument('--features', type=str, required=True,
+                       help='Type of genomic feature to analyze', choices=['gene', 'exon', 'mRNA', 'CDS', 'all'])
+multifasta.add_argument('--output', required=True,
+                       help='Name of the output MULTI-FASTA file')
+
+# Parse arguments into variables
+args = multifasta.parse_args() 
+docfasta = args.fasta
+docgtf = args.gtf
+elemento = args.features
+result = args.output
+
+# Load the DNA sequence from the FASTA file
+seq = seqdoc(docfasta)
+
+# Read the content of the GTF file
+with open(docgtf) as f:
+    inf = f.readlines()
+
+# Initialize variables
+infGTF = []       # Will store each line of the GTF file as a list
+posiciones = []   # Will store start and end positions of each genomic feature
+descr = ''        # Will store the description field from the GTF line
+genid = ''        # Will store the gene_id
+trid = ''         # Will store the transcript_id
+frag = ''         # Will store the final formatted sequence for the FASTA output
+
+# Iterate over each line in the GTF file
+for i in range(0, len(inf)):
+    infGTF = inf[i].strip('\n').split('\t')  # Split line into fields
+    posiciones = infGTF[3:infGTF.index('.')]  # Extract start and end positions
+    cad, gc, lenght = infsec(seq, int(posiciones[0]), int(posiciones[-1]))  # Extract fragment, GC content, and length
+    
+    # If on the negative strand, get the reverse complement
+    if infGTF[6] == '-':
+        cad = revcomp(cad)
+    
+    # Format the sequence depending on its length
+    if len(cad) > 80:
+        frag = cad80(cad)
+    if len(cad) <= 80:
+        frag = cad + '\n'
+    
+    # Extract gene and transcript identifiers from the description
+    descr = infGTF[8]
+    genid = descr[descr.find('F'):descr.find(';') - 1]
+    trid = 'transcript=' + (descr[descr.find('F', descr.find('t')):descr.find(';', descr.find('t')) - 1])
+    
+    # Write only the requested feature type to the output file
+    if infGTF[2] == elemento:
+        with open(result, 'a') as f:
+            if elemento != 'gene':
+                f.write('>' + infGTF[2] + ' gene=' + genid + ' ' + trid + ' len=' + str(lenght) + ' gc=' + str(gc) + '\n' + frag)
+            else:
+                f.write('>' + infGTF[2] + ' gene=' + genid + ' len=' + str(lenght) + ' gc=' + str(gc) + '\n' + frag)
+    
+    # If "all" features were requested, write everything
+    if elemento == 'all':
+        with open(result, 'a') as f: 
+            if len(trid) > 20:
+                f.write('>' + infGTF[2] + ' gene=' + genid + ' ' + trid + ' len=' + str(lenght) + ' gc=' + str(gc) + '\n' + frag)
+            elif len(trid) < 20:
+                f.write('>' + infGTF[2] + ' gene=' + genid + ' len=' + str(lenght) + ' gc=' + str(gc) + '\n' + frag)
+
+# ================================
+# How to test this script
+# ================================
+
+# Example input files
+# Create the following two files in the same directory as this script:
+
+# 1. mini_genome.fasta
+# ---------------------
+# >chr1
+# ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA
+
+# 2. mini_annotations.gtf
+# ------------------------
+# chr1	source	gene	1	10	.	+	.	gene_id "FGENE1"; transcript_id "FTRANS1";
+# chr1	source	exon	3	8	.	+	.	gene_id "FGENE1"; transcript_id "FTRANS1";
+# chr1	source	CDS	5	10	.	+	.	gene_id "FGENE1"; transcript_id "FTRANS1";
+# chr1	source	gene	15	25	.	-	.	gene_id "FGENE2"; transcript_id "FTRANS2";
+# chr1	source	exon	18	22	.	-	.	gene_id "FGENE2"; transcript_id "FTRANS2";
+# chr1	source	CDS	16	25	.	-	.	gene_id "FGENE2"; transcript_id "FTRANS2";
+
+# How to run
+# In your terminal, navigate to the folder containing the script and the files, then run:
+
+# python genomic_feature.py --fasta mini_genome.fasta --gtf mini_annotations.gtf --features gene --output test_output.fasta
+
+# Expected output (test_output.fasta)
+# --------------------------------------
+# >gene gene=FGENE1 len=10 gc=0.5
+# ATGCGTACGT
+# >gene gene=FGENE2 len=11 gc=0.45
+# CTAGCTAGCTA
+
+# Note
+# This minimal example is intended to validate the script functionality under controlled conditions.
+# For real analyses, use complete FASTA and GTF files from the genome of interest.
+
