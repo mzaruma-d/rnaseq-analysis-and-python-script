@@ -13,5 +13,5 @@ This repository contains two main files:
 ---
 
 **Author:** María José Zaruma Delgado  
-**Contact:** (you can add your email or profile link here)
+**Contact:** mzaruma.d@gmail.com
 
