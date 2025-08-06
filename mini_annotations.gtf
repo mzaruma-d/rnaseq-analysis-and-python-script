@@ -1,0 +1,6 @@
+chr1	source	gene	1	10	.	+	.	gene_id "FGENE1"; transcript_id "FTRANS1";
+chr1	source	exon	3	8	.	+	.	gene_id "FGENE1"; transcript_id "FTRANS1";
+chr1	source	CDS	5	10	.	+	.	gene_id "FGENE1"; transcript_id "FTRANS1";
+chr1	source	gene	15	25	.	-	.	gene_id "FGENE2"; transcript_id "FTRANS2";
+chr1	source	exon	18	22	.	-	.	gene_id "FGENE2"; transcript_id "FTRANS2";
+chr1	source	CDS	16	25	.	-	.	gene_id "FGENE2"; transcript_id "FTRANS2";
